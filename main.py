@@ -88,17 +88,27 @@ async def admin_command(message: types.Message):
     if not user['is_whitelisted']:
         return
 
-    # Expecting /admin <user_id> <count>
+    # Expecting /admin <user_id_or_username> <count>
     args = message.text.split()
     if len(args) < 3:
-        await message.reply("Использование: `/admin <user_id> <количество>`")
+        await message.reply("Использование: `/admin <ID или @username> <количество>`")
+        return
+
+    target = args[1]
+    try:
+        count = int(args[2])
+    except ValueError:
+        await message.reply("❌ Количество должно быть числом.")
         return
 
     try:
-        target_id = int(args[1])
-        count = int(args[2])
-        await database.add_free_downloads(target_id, count)
-        await message.reply(f"✅ Пользователю {target_id} добавлено {count} скачиваний.")
+        if target.isdigit():
+            target_id = int(target)
+            await database.add_free_downloads(target_id, count)
+            await message.reply(f"✅ Пользователю с ID {target_id} добавлено {count} скачиваний.")
+        else:
+            await database.add_free_downloads_by_username(target, count)
+            await message.reply(f"✅ Пользователю {target} добавлено {count} скачиваний.")
     except Exception as e:
         await message.reply(f"❌ Ошибка: {e}")
 

@@ -34,10 +34,12 @@ async def get_user(user_id: int, username: str = None):
         
         return user
 
-async def add_free_downloads(user_id: int, count: int):
+async def add_free_downloads_by_username(username: str, count: int):
+    # Remove @ if present
+    username = username.lstrip('@')
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute(
-            "UPDATE users SET free_downloads = free_downloads + ? WHERE user_id = ?",
-            (count, user_id)
+            "UPDATE users SET free_downloads = free_downloads + ? WHERE username = ?",
+            (count, username)
         )
         await db.commit()
