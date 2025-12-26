@@ -2,7 +2,6 @@ import os
 import re
 import asyncio
 import aiohttp
-from bs4 import BeautifulSoup
 import yt_dlp
 from typing import Optional
 
@@ -60,7 +59,7 @@ class YandexMusicHandler:
     async def download_track(self, query: str, filename: str) -> str:
         temp_path = os.path.join('/tmp' if os.name != 'nt' else '.', filename)
         
-        # Common options
+        # Enhanced options to mitigate bot detection
         ydl_opts = {
             'format': 'bestaudio/best',
             'outtmpl': temp_path.replace('.mp3', ''),
@@ -71,7 +70,16 @@ class YandexMusicHandler:
             }],
             'quiet': True,
             'no_warnings': True,
-            # 'cookiefile': 'cookies.txt', # If we had one
+            'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'referer': 'https://www.youtube.com/',
+            'extractor_args': {
+                'youtube': {
+                    'player_client': ['android_music', 'web_creator'],
+                    'player_skip': ['webpage', 'configs'],
+                }
+            },
+            'noprogress': True,
+            'no_color': True,
         }
 
         def run_ydl():
