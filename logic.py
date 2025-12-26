@@ -3,7 +3,6 @@ import re
 import asyncio
 import aiohttp
 import yt_dlp
-import logging
 from typing import Optional
 
 class YandexMusicHandler:
@@ -60,7 +59,7 @@ class YandexMusicHandler:
     async def download_track(self, query: str, filename: str) -> str:
         temp_path = os.path.join('/tmp' if os.name != 'nt' else '.', filename)
         
-        # Advanced options to bypass YouTube bot detection
+        # Enhanced options to mitigate bot detection
         ydl_opts = {
             'format': 'bestaudio/best',
             'outtmpl': temp_path.replace('.mp3', ''),
@@ -73,10 +72,9 @@ class YandexMusicHandler:
             'no_warnings': True,
             'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'referer': 'https://www.youtube.com/',
-            'impersonate': 'chrome', # Mimic Chrome browser at a low level
             'extractor_args': {
                 'youtube': {
-                    'player_client': ['android_music', 'web_creator', 'ios', 'android', 'tv'],
+                    'player_client': ['android_music', 'web_creator'],
                     'player_skip': ['webpage', 'configs'],
                 }
             },
@@ -84,30 +82,24 @@ class YandexMusicHandler:
             'no_color': True,
         }
 
-        # Check for cookies file
-        if os.path.exists("cookies.txt"):
-            ydl_opts['cookiefile'] = "cookies.txt"
-
         def run_ydl():
             # Attempt 1: YouTube
             try:
-                logging.info(f"Searching YouTube for: {query}")
+                print(f"Searching YouTube for: {query}")
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     ydl.download([f"ytsearch1:{query} audio"])
                 return temp_path
             except Exception as e:
-                logging.error(f"YouTube download failed: {str(e)[:500]}")
+                print(f"YouTube download failed: {e}")
             
             # Attempt 2: SoundCloud
             try:
-                logging.info(f"Searching SoundCloud for: {query}")
-                # Remove impersonate for SoundCloud if it causes issues, 
-                # but for simplicity let's try with current opts first
+                print(f"Searching SoundCloud for: {query}")
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     ydl.download([f"scsearch1:{query}"])
                 return temp_path
             except Exception as e:
-                logging.error(f"SoundCloud download failed: {str(e)[:500]}")
+                print(f"SoundCloud download failed: {e}")
                 return ""
 
         # Run in thread pool

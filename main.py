@@ -83,18 +83,6 @@ async def lifespan(app: FastAPI):
     logging.info(f"WEBHOOK_URL: {webhook_url}")
     logging.info(f"BOT_TOKEN (masked): {API_TOKEN[:5] if API_TOKEN else 'None'}...")
     
-    # Handle YouTube cookies
-    cookie_data = os.getenv("YOUTUBE_COOKIES")
-    if cookie_data:
-        try:
-            with open("cookies.txt", "w") as f:
-                f.write(cookie_data)
-            logging.info("⭐ Cookies initialized from environment")
-        except Exception as e:
-            logging.error(f"❌ Failed to write cookies: {e}")
-    else:
-        logging.warning("⚠️ YOUTUBE_COOKIES environment variable is not set")
-
     if not API_TOKEN or not WEBHOOK_URL:
         logging.error("❌ CRITICAL: BOT_TOKEN or WEBHOOK_URL is missing!")
     
@@ -106,8 +94,6 @@ async def lifespan(app: FastAPI):
         
     yield
     logging.info("👋 Shutting down bot...")
-    if os.path.exists("cookies.txt"):
-        os.remove("cookies.txt")
     await bot.delete_webhook()
 
 app = FastAPI(lifespan=lifespan)
