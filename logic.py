@@ -83,6 +83,10 @@ class YandexMusicHandler:
             'no_color': True,
         }
 
+        # Check for cookies file
+        if os.path.exists("cookies.txt"):
+            ydl_opts['cookiefile'] = "cookies.txt"
+
         def run_ydl():
             # Attempt 1: YouTube
             try:
