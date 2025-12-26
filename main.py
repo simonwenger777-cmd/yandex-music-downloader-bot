@@ -115,16 +115,41 @@ async def debug_webhook():
     try:
         info = await bot.get_webhook_info()
         return {
-            "url": info.url,
-            "has_custom_certificate": info.has_custom_certificate,
-            "pending_update_count": info.pending_update_count,
-            "last_error_date": info.last_error_date,
-            "last_error_message": info.last_error_message,
-            "max_connections": info.max_connections,
-            "ip_address": info.ip_address
+            "status": "success",
+            "webhook_info": {
+                "url": info.url,
+                "pending_update_count": info.pending_update_count,
+                "last_error_message": info.last_error_message,
+            },
+            "config": {
+                "BASE_URL": BASE_URL,
+                "WEBHOOK_PATH_SET": bool(WEBHOOK_PATH),
+                "TOKEN_LOADED": bool(API_TOKEN)
+            }
         }
     except Exception as e:
-        return {"error": str(e)}
+        return {"status": "error", "message": str(e)}
+
+@app.get("/set_webhook")
+async def manual_set_webhook():
+    webhook_url = f"{BASE_URL}{WEBHOOK_PATH}"
+    try:
+        success = await bot.set_webhook(
+            url=webhook_url,
+            drop_pending_updates=False,
+            allowed_updates=["message"]
+        )
+        return {
+            "status": "success" if success else "failed",
+            "url_attempted": webhook_url,
+            "result": success
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "url_attempted": webhook_url,
+            "error": str(e)
+        }
 
 @app.post(WEBHOOK_PATH)
 async def bot_webhook(request: Request):
