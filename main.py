@@ -29,7 +29,7 @@ ym_handler = YandexMusicHandler() # No token needed
 async def send_welcome(message: types.Message):
     await message.reply("Привет! Пришли мне ссылку на трек из Яндекс Музыки, и я скачаю его для тебя.")
 
-@dp.message(F.text.contains("music.yandex.ru/album/"))
+@dp.message(F.text.contains("music.yandex.ru/"))
 async def handle_yandex_link(message: types.Message):
     status_msg = await message.answer("🔍 Ищу трек...")
     
