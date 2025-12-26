@@ -60,27 +60,27 @@ class YandexMusicHandler:
         temp_path = os.path.join('/tmp' if os.name != 'nt' else '.', filename)
         
         # Enhanced options to mitigate bot detection
-    ydl_opts = {
-        'format': 'bestaudio/best',
-        'outtmpl': temp_path.replace('.mp3', ''),
-        'postprocessors': [{
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'mp3',
-            'preferredquality': '192',
-        }],
-        'quiet': True,
-        'no_warnings': True,
-        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'referer': 'https://www.youtube.com/',
-        'extractor_args': {
-            'youtube': {
-                'player_client': ['android_music', 'web_creator'],
-                'player_skip': ['webpage', 'configs'],
-            }
-        },
-        'noprogress': True,
-        'no_color': True,
-    }
+        ydl_opts = {
+            'format': 'bestaudio/best',
+            'outtmpl': temp_path.replace('.mp3', ''),
+            'postprocessors': [{
+                'key': 'FFmpegExtractAudio',
+                'preferredcodec': 'mp3',
+                'preferredquality': '192',
+            }],
+            'quiet': True,
+            'no_warnings': True,
+            'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'referer': 'https://www.youtube.com/',
+            'extractor_args': {
+                'youtube': {
+                    'player_client': ['android_music', 'web_creator'],
+                    'player_skip': ['webpage', 'configs'],
+                }
+            },
+            'noprogress': True,
+            'no_color': True,
+        }
 
         def run_ydl():
             # Attempt 1: YouTube
