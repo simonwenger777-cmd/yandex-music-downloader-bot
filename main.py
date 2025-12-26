@@ -83,10 +83,21 @@ async def catch_yandex_link(message: types.Message):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # No yandex handler init needed
     webhook_url = f"{BASE_URL}{WEBHOOK_PATH}"
-    await bot.set_webhook(webhook_url)
+    logging.info(f"Setting webhook to: {webhook_url}")
+    try:
+        success = await bot.set_webhook(
+            url=webhook_url,
+            drop_pending_updates=True,
+            allowed_updates=["message"]
+        )
+        logging.info(f"Set webhook result: {success}")
+        webhook_info = await bot.get_webhook_info()
+        logging.info(f"Webhook info: {webhook_info}")
+    except Exception as e:
+        logging.error(f"Failed to set webhook: {e}")
     yield
+    logging.info("Shutting down... deleting webhook")
     await bot.delete_webhook()
 
 app = FastAPI(lifespan=lifespan)
@@ -97,7 +108,23 @@ async def index():
 
 @app.get("/health")
 async def health():
-    return {"status": "healthy"}
+    return {"status": "healthy", "webhook_configured": bool(BASE_URL and API_TOKEN)}
+
+@app.get("/debug/webhook")
+async def debug_webhook():
+    try:
+        info = await bot.get_webhook_info()
+        return {
+            "url": info.url,
+            "has_custom_certificate": info.has_custom_certificate,
+            "pending_update_count": info.pending_update_count,
+            "last_error_date": info.last_error_date,
+            "last_error_message": info.last_error_message,
+            "max_connections": info.max_connections,
+            "ip_address": info.ip_address
+        }
+    except Exception as e:
+        return {"error": str(e)}
 
 @app.post(WEBHOOK_PATH)
 async def bot_webhook(request: Request):
