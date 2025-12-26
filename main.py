@@ -76,9 +76,24 @@ async def catch_yandex_link(message: types.Message):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Log configuration for debugging
     webhook_url = f"{BASE_URL}{WEBHOOK_PATH}"
-    await bot.set_webhook(webhook_url)
+    logging.info(f"🚀 Starting bot...")
+    logging.info(f"PORT: {os.getenv('PORT', 'Not set')}")
+    logging.info(f"WEBHOOK_URL: {webhook_url}")
+    logging.info(f"BOT_TOKEN (masked): {API_TOKEN[:5] if API_TOKEN else 'None'}...")
+    
+    if not API_TOKEN or not WEBHOOK_URL:
+        logging.error("❌ CRITICAL: BOT_TOKEN or WEBHOOK_URL is missing!")
+    
+    try:
+        await bot.set_webhook(webhook_url)
+        logging.info("⭐ Webhook set successfully")
+    except Exception as e:
+        logging.error(f"❌ Failed to set webhook: {e}")
+        
     yield
+    logging.info("👋 Shutting down bot...")
     await bot.delete_webhook()
 
 app = FastAPI(lifespan=lifespan)

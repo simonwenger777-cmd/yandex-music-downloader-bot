@@ -20,5 +20,5 @@ COPY . .
 # Expose the port
 EXPOSE 10000
 
-# Run the application
-CMD ["python", "start.py"]
+# Run the application with gunicorn for better stability and signal handling
+CMD ["sh", "-c", "gunicorn main:app --workers 1 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:${PORT:-10000}"]
