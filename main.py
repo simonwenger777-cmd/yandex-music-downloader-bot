@@ -31,39 +31,48 @@ async def send_welcome(message: types.Message):
 
 from fastapi import BackgroundTasks
 
-async def process_track_download(message: types.Message, track_url: str):
-    status_msg = await message.answer("🔍 Ищу трек...")
+async def process_track_download(chat_id: int, track_url: str, status_msg_id: int):
     try:
+        logging.info(f"Background task started for track: {track_url}")
         track_info = await ym_handler.get_track_info(track_url)
         if not track_info:
-            await status_msg.edit_text("❌ Не удалось найти информацию о треке.")
+            await bot.edit_message_text(chat_id=chat_id, message_id=status_msg_id, text="❌ Не удалось найти информацию о треке.")
             return
 
-        await status_msg.edit_text(f"📥 Скачиваю: {track_info['artist']} - {track_info['title']}...")
+        await bot.edit_message_text(chat_id=chat_id, message_id=status_msg_id, text=f"📥 Скачиваю: {track_info['artist']} - {track_info['title']}...")
         
         file_path = await ym_handler.download_track(track_info['query'], track_info['filename'])
         
         if file_path and os.path.exists(file_path):
             audio = FSInputFile(file_path, filename=track_info['filename'])
             await bot.send_audio(
-                chat_id=message.chat.id,
+                chat_id=chat_id,
                 audio=audio,
                 title=track_info['title'],
                 performer=track_info['artist']
             )
-            await status_msg.delete()
+            await bot.delete_message(chat_id=chat_id, message_id=status_msg_id)
             os.remove(file_path)
+            logging.info(f"Track sent successfully: {track_info['query']}")
         else:
-            await status_msg.edit_text("❌ Ошибка при скачивании (ни на YouTube, ни на SoundCloud не нашлось).")
+            await bot.edit_message_text(chat_id=chat_id, message_id=status_msg_id, text="❌ Ошибка при скачивании (не найдено на YouTube/SoundCloud).")
+            logging.error(f"Download failed for query: {track_info['query']}")
     except Exception as e:
-        logging.error(f"Error handling link: {e}")
-        await status_msg.edit_text("⚠️ Ошибка при обработке. Попробуйте еще раз.")
+        logging.error(f"Error in background task: {e}")
+        try:
+            await bot.edit_message_text(chat_id=chat_id, message_id=status_msg_id, text="⚠️ Ошибка при обработке. Попробуйте еще раз.")
+        except:
+            pass
 
 @dp.message(F.text.contains("music.yandex.ru/"))
 async def catch_yandex_link(message: types.Message):
-    # This just marks the message as handled by aiogram
-    # The actual processing happens in the background via FastAPI
-    pass
+    # This handler is a fallback in case the webhook 'if' doesn't catch it
+    # We will handle it here instead of in the webhook for better aiogram integration
+    status_msg = await message.answer("🔍 Ищу трек...")
+    # Add to background task to free up the webhook
+    # Note: Using FastAPI background tasks here is tricky since we are inside aiogram
+    # But we can use asyncio.create_task for fire-and-forget
+    asyncio.create_task(process_track_download(message.chat.id, message.text, status_msg.message_id))
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -76,15 +85,10 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 @app.post(WEBHOOK_PATH)
-async def bot_webhook(request: Request, background_tasks: BackgroundTasks):
+async def bot_webhook(request: Request):
     data = await request.json()
+    logging.info(f"Update received: {data}")
     update = types.Update.model_validate(data, context={"bot": bot})
-    
-    # Check if this is a message with a Yandex link to process in background
-    if update.message and update.message.text and "music.yandex.ru/" in update.message.text:
-        background_tasks.add_task(process_track_download, update.message, update.message.text)
-        return {"ok": True}
-
     await dp.feed_update(bot, update)
     return {"ok": True}
 
