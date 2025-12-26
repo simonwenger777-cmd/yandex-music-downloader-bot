@@ -90,21 +90,23 @@ class YandexMusicHandler:
         def run_ydl():
             # Attempt 1: YouTube
             try:
-                print(f"Searching YouTube for: {query}")
+                logging.info(f"Searching YouTube for: {query}")
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     ydl.download([f"ytsearch1:{query} audio"])
                 return temp_path
             except Exception as e:
-                print(f"YouTube download failed: {e}")
+                logging.error(f"YouTube download failed: {str(e)[:500]}")
             
             # Attempt 2: SoundCloud
             try:
-                print(f"Searching SoundCloud for: {query}")
+                logging.info(f"Searching SoundCloud for: {query}")
+                # Remove impersonate for SoundCloud if it causes issues, 
+                # but for simplicity let's try with current opts first
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     ydl.download([f"scsearch1:{query}"])
                 return temp_path
             except Exception as e:
-                print(f"SoundCloud download failed: {e}")
+                logging.error(f"SoundCloud download failed: {str(e)[:500]}")
                 return ""
 
         # Run in thread pool
