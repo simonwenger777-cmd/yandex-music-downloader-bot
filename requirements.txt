@@ -1,0 +1,7 @@
+aiogram
+yt-dlp
+beautifulsoup4
+fastapi
+uvicorn
+python-dotenv
+aiohttp
