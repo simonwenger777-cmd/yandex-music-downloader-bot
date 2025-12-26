@@ -76,31 +76,11 @@ async def catch_yandex_link(message: types.Message):
     # But we can use asyncio.create_task for fire-and-forget
     asyncio.create_task(process_track_download(message.chat.id, message.text, status_msg.message_id))
 
-keep_alive_task = None
-
-async def keep_alive():
-    """Self-ping to keep Render free tier awake"""
-    while True:
-        try:
-            await asyncio.sleep(30)  # Ping every 30 seconds
-            async with aiohttp.ClientSession() as session:
-                async with session.get(f"{BASE_URL}/health") as resp:
-                    logging.info(f"Keep-alive ping: {resp.status}")
-        except Exception as e:
-            logging.error(f"Keep-alive error: {e}")
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global keep_alive_task
-    # Start keep-alive task
-    keep_alive_task = asyncio.create_task(keep_alive())
-    # Set webhook
     webhook_url = f"{BASE_URL}{WEBHOOK_PATH}"
     await bot.set_webhook(webhook_url)
     yield
-    # Cleanup
-    if keep_alive_task:
-        keep_alive_task.cancel()
     await bot.delete_webhook()
 
 app = FastAPI(lifespan=lifespan)
