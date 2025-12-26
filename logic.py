@@ -3,6 +3,7 @@ import re
 import asyncio
 import aiohttp
 import yt_dlp
+import logging
 from typing import Optional
 
 class YandexMusicHandler:
