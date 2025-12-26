@@ -6,9 +6,7 @@ from fastapi import FastAPI, Request
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.types import FSInputFile
 from aiogram.filters import Command
-from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
 from dotenv import load_dotenv
-import aiohttp
 
 from logic import YandexMusicHandler
 
@@ -31,7 +29,7 @@ ym_handler = YandexMusicHandler() # No token needed
 async def send_welcome(message: types.Message):
     await message.reply("Привет! Пришли мне ссылку на трек из Яндекс Музыки, и я скачаю его для тебя.")
 
-from fastapi import BackgroundTasks
+
 
 async def process_track_download(chat_id: int, track_url: str, status_msg_id: int):
     try:
