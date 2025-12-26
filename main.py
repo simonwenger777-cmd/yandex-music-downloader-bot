@@ -22,21 +22,15 @@ BASE_URL = WEBHOOK_URL
 logging.basicConfig(level=logging.INFO)
 
 # Initialize bot and dispatcher
-if not API_TOKEN:
-    logging.error("BOT_TOKEN is not set!")
-if not WEBHOOK_URL:
-    logging.error("WEBHOOK_URL is not set!")
-
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher()
-ym_handler = YandexMusicHandler()
-logging.info(f"Webhook URL set to: {BASE_URL}{WEBHOOK_PATH}")
+ym_handler = YandexMusicHandler() # No token needed
 
 @dp.message(Command("start"))
 async def send_welcome(message: types.Message):
     await message.reply("Привет! Пришли мне ссылку на трек из Яндекс Музыки, и я скачаю его для тебя.")
 
-
+from fastapi import BackgroundTasks
 
 async def process_track_download(chat_id: int, track_url: str, status_msg_id: int):
     try:
@@ -83,85 +77,29 @@ async def catch_yandex_link(message: types.Message):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # No yandex handler init needed
     webhook_url = f"{BASE_URL}{WEBHOOK_PATH}"
-    logging.info(f"Setting webhook to: {webhook_url}")
-    try:
-        success = await bot.set_webhook(
-            url=webhook_url,
-            drop_pending_updates=True,
-            allowed_updates=["message"]
-        )
-        logging.info(f"Set webhook result: {success}")
-        webhook_info = await bot.get_webhook_info()
-        logging.info(f"Webhook info: {webhook_info}")
-    except Exception as e:
-        logging.error(f"Failed to set webhook: {e}")
+    await bot.set_webhook(webhook_url)
     yield
-    logging.info("Shutting down... deleting webhook")
     await bot.delete_webhook()
 
 app = FastAPI(lifespan=lifespan)
 
 @app.get("/")
-async def index():
-    return {"status": "ok", "message": "Bot is running"}
+async def root():
+    return {"status": "ok", "message": "Yandex Music Bot is running"}
 
 @app.get("/health")
 async def health():
-    return {"status": "healthy", "webhook_configured": bool(BASE_URL and API_TOKEN)}
-
-@app.get("/debug/webhook")
-async def debug_webhook():
-    try:
-        info = await bot.get_webhook_info()
-        return {
-            "status": "success",
-            "webhook_info": {
-                "url": info.url,
-                "pending_update_count": info.pending_update_count,
-                "last_error_message": info.last_error_message,
-            },
-            "config": {
-                "BASE_URL": BASE_URL,
-                "WEBHOOK_PATH_SET": bool(WEBHOOK_PATH),
-                "TOKEN_LOADED": bool(API_TOKEN)
-            }
-        }
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
-
-@app.get("/set_webhook")
-async def manual_set_webhook():
-    webhook_url = f"{BASE_URL}{WEBHOOK_PATH}"
-    try:
-        success = await bot.set_webhook(
-            url=webhook_url,
-            drop_pending_updates=False,
-            allowed_updates=["message"]
-        )
-        return {
-            "status": "success" if success else "failed",
-            "url_attempted": webhook_url,
-            "result": success
-        }
-    except Exception as e:
-        return {
-            "status": "error",
-            "url_attempted": webhook_url,
-            "error": str(e)
-        }
+    return {"status": "healthy"}
 
 @app.post(WEBHOOK_PATH)
 async def bot_webhook(request: Request):
-    try:
-        data = await request.json()
-        logging.info(f"Update received: {data.get('update_id')}")
-        update = types.Update.model_validate(data, context={"bot": bot})
-        await dp.feed_update(bot, update)
-        return {"ok": True}
-    except Exception as e:
-        logging.error(f"Error in webhook: {e}")
-        return {"ok": False, "error": str(e)}
+    data = await request.json()
+    logging.info(f"Update received: {data}")
+    update = types.Update.model_validate(data, context={"bot": bot})
+    await dp.feed_update(bot, update)
+    return {"ok": True}
 
 if __name__ == "__main__":
     import uvicorn

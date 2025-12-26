@@ -1,7 +1,8 @@
 aiogram
-yt-dlp
+yt-dlp@git+https://github.com/yt-dlp/yt-dlp.git
 beautifulsoup4
 fastapi
 uvicorn
+gunicorn
 python-dotenv
 aiohttp
