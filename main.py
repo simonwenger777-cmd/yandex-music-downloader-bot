@@ -22,15 +22,21 @@ BASE_URL = WEBHOOK_URL
 logging.basicConfig(level=logging.INFO)
 
 # Initialize bot and dispatcher
+if not API_TOKEN:
+    logging.error("BOT_TOKEN is not set!")
+if not WEBHOOK_URL:
+    logging.error("WEBHOOK_URL is not set!")
+
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher()
-ym_handler = YandexMusicHandler() # No token needed
+ym_handler = YandexMusicHandler()
+logging.info(f"Webhook URL set to: {BASE_URL}{WEBHOOK_PATH}")
 
 @dp.message(Command("start"))
 async def send_welcome(message: types.Message):
     await message.reply("Привет! Пришли мне ссылку на трек из Яндекс Музыки, и я скачаю его для тебя.")
 
-from fastapi import BackgroundTasks
+
 
 async def process_track_download(chat_id: int, track_url: str, status_msg_id: int):
     try:
@@ -85,13 +91,25 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+@app.get("/")
+async def index():
+    return {"status": "ok", "message": "Bot is running"}
+
+@app.get("/health")
+async def health():
+    return {"status": "healthy"}
+
 @app.post(WEBHOOK_PATH)
 async def bot_webhook(request: Request):
-    data = await request.json()
-    logging.info(f"Update received: {data}")
-    update = types.Update.model_validate(data, context={"bot": bot})
-    await dp.feed_update(bot, update)
-    return {"ok": True}
+    try:
+        data = await request.json()
+        logging.info(f"Update received: {data.get('update_id')}")
+        update = types.Update.model_validate(data, context={"bot": bot})
+        await dp.feed_update(bot, update)
+        return {"ok": True}
+    except Exception as e:
+        logging.error(f"Error in webhook: {e}")
+        return {"ok": False, "error": str(e)}
 
 if __name__ == "__main__":
     import uvicorn
