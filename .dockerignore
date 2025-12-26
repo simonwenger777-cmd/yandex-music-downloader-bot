@@ -1,0 +1,11 @@
+.git
+__pycache__
+*.pyc
+.env
+.gitignore
+.gemini
+render.yaml
+Dockerfile
+.dockerignore
+downloads/
+temp/

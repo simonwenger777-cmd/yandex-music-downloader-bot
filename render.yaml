@@ -1,9 +1,7 @@
 services:
   - type: web
     name: yandex-music-bot
-    env: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: python start.py
+    env: docker
     healthCheckPath: /health
     envVars:
       - key: PORT
