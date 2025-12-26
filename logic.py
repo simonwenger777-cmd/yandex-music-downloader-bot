@@ -59,7 +59,7 @@ class YandexMusicHandler:
     async def download_track(self, query: str, filename: str) -> str:
         temp_path = os.path.join('/tmp' if os.name != 'nt' else '.', filename)
         
-        # Enhanced options to mitigate bot detection
+        # Advanced options to bypass YouTube bot detection
         ydl_opts = {
             'format': 'bestaudio/best',
             'outtmpl': temp_path.replace('.mp3', ''),
@@ -72,9 +72,10 @@ class YandexMusicHandler:
             'no_warnings': True,
             'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'referer': 'https://www.youtube.com/',
+            'impersonate': 'chrome', # Mimic Chrome browser at a low level
             'extractor_args': {
                 'youtube': {
-                    'player_client': ['android_music', 'web_creator'],
+                    'player_client': ['android_music', 'web_creator', 'ios', 'android', 'tv'],
                     'player_skip': ['webpage', 'configs'],
                 }
             },
