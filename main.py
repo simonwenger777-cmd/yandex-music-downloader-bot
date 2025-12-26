@@ -79,9 +79,28 @@ async def send_welcome(message: types.Message):
         "Привет! Пришли мне ссылку на трек из Яндекс Музыки.\n\n"
         "💎 Условия:\n"
         "- Первое скачивание бесплатно!\n"
-        "- Далее — 3 звезды за трек.\n"
-        "- Для exsslx и polya_poela — безлимит! 😎"
+        "- Далее — 3 звезды за трек."
     )
+
+@dp.message(Command("admin"))
+async def admin_command(message: types.Message):
+    user = await database.get_user(message.from_user.id, message.from_user.username)
+    if not user['is_whitelisted']:
+        return
+
+    # Expecting /admin <user_id> <count>
+    args = message.text.split()
+    if len(args) < 3:
+        await message.reply("Использование: `/admin <user_id> <количество>`")
+        return
+
+    try:
+        target_id = int(args[1])
+        count = int(args[2])
+        await database.add_free_downloads(target_id, count)
+        await message.reply(f"✅ Пользователю {target_id} добавлено {count} скачиваний.")
+    except Exception as e:
+        await message.reply(f"❌ Ошибка: {e}")
 
 @dp.message(F.text.contains("music.yandex.ru/"))
 async def catch_yandex_link(message: types.Message):
