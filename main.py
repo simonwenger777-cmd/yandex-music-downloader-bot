@@ -103,4 +103,4 @@ if __name__ == "__main__":
     import uvicorn
     # Use polling for local testing if needed, but the structure is for Webhooks
     # To run locally with polling, you'd usually comment out FastAPI and use dp.start_polling(bot)
-    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8000)))
+    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 10000)))
