@@ -29,14 +29,14 @@ ym_handler = YandexMusicHandler() # No token needed
 async def send_welcome(message: types.Message):
     await message.reply("Привет! Пришли мне ссылку на трек из Яндекс Музыки, и я скачаю его для тебя.")
 
-@dp.message(F.text.contains("music.yandex.ru/"))
-async def handle_yandex_link(message: types.Message):
+from fastapi import BackgroundTasks
+
+async def process_track_download(message: types.Message, track_url: str):
     status_msg = await message.answer("🔍 Ищу трек...")
-    
     try:
-        track_info = await ym_handler.get_track_info(message.text)
+        track_info = await ym_handler.get_track_info(track_url)
         if not track_info:
-            await status_msg.edit_text("❌ Не удалось найти трек по этой ссылке.")
+            await status_msg.edit_text("❌ Не удалось найти информацию о треке.")
             return
 
         await status_msg.edit_text(f"📥 Скачиваю: {track_info['artist']} - {track_info['title']}...")
@@ -52,13 +52,18 @@ async def handle_yandex_link(message: types.Message):
                 performer=track_info['artist']
             )
             await status_msg.delete()
-            # Clean up
             os.remove(file_path)
         else:
-            await status_msg.edit_text("❌ Ошибка при скачивании файла.")
+            await status_msg.edit_text("❌ Ошибка при скачивании (ни на YouTube, ни на SoundCloud не нашлось).")
     except Exception as e:
         logging.error(f"Error handling link: {e}")
-        await status_msg.edit_text("⚠️ Произошла ошибка при обработке запроса.")
+        await status_msg.edit_text("⚠️ Ошибка при обработке. Попробуйте еще раз.")
+
+@dp.message(F.text.contains("music.yandex.ru/"))
+async def catch_yandex_link(message: types.Message):
+    # This just marks the message as handled by aiogram
+    # The actual processing happens in the background via FastAPI
+    pass
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -71,9 +76,17 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 @app.post(WEBHOOK_PATH)
-async def bot_webhook(request: Request):
-    update = types.Update.model_validate(await request.json(), context={"bot": bot})
+async def bot_webhook(request: Request, background_tasks: BackgroundTasks):
+    data = await request.json()
+    update = types.Update.model_validate(data, context={"bot": bot})
+    
+    # Check if this is a message with a Yandex link to process in background
+    if update.message and update.message.text and "music.yandex.ru/" in update.message.text:
+        background_tasks.add_task(process_track_download, update.message, update.message.text)
+        return {"ok": True}
+
     await dp.feed_update(bot, update)
+    return {"ok": True}
 
 if __name__ == "__main__":
     import uvicorn
