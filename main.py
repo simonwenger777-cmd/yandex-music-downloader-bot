@@ -31,40 +31,55 @@ download_queue = asyncio.Queue()
 async def download_worker():
     logging.info("👷 Queue worker started")
     while True:
-        chat_id, track_url, status_msg_id, user_id = await download_queue.get()
+        chat_id, query_or_url, status_msg_id, user_id, is_link = await download_queue.get()
         try:
-            await process_track_download(chat_id, track_url, status_msg_id)
+            await process_track_download(chat_id, query_or_url, status_msg_id, is_link)
         except Exception as e:
             logging.error(f"Error in worker: {e}")
         finally:
             download_queue.task_done()
 
-async def process_track_download(chat_id: int, track_url: str, status_msg_id: int):
+async def process_track_download(chat_id: int, query_or_url: str, status_msg_id: int, is_link: bool):
     try:
-        logging.info(f"Processing track: {track_url}")
-        track_info = await ym_handler.get_track_info(track_url)
-        if not track_info:
-            await bot.edit_message_text(chat_id=chat_id, message_id=status_msg_id, text="❌ Не удалось найти информацию о треке.")
-            return
+        if is_link:
+            logging.info(f"Processing Yandex link: {query_or_url}")
+            track_info = await ym_handler.get_track_info(query_or_url)
+            if not track_info:
+                await bot.edit_message_text(chat_id=chat_id, message_id=status_msg_id, text="❌ Не удалось найти информацию о треке по ссылке.")
+                return
+            search_query = track_info['query']
+            filename = track_info['filename']
+            display_name = f"{track_info['artist']} - {track_info['title']}"
+            title = track_info['title']
+            performer = track_info['artist']
+        else:
+            logging.info(f"Processing search query: {query_or_url}")
+            search_query = query_or_url
+            # Clean filename
+            safe_name = "".join([c for c in query_or_url if c.isalnum() or c in (' ', '-', '_')]).strip()
+            filename = f"{safe_name}.mp3"
+            display_name = query_or_url
+            title = query_or_url
+            performer = "YouTube/SoundCloud"
 
-        await bot.edit_message_text(chat_id=chat_id, message_id=status_msg_id, text=f"📥 Скачиваю: {track_info['artist']} - {track_info['title']}...")
+        await bot.edit_message_text(chat_id=chat_id, message_id=status_msg_id, text=f"📥 Скачиваю: {display_name}...")
         
-        file_path = await ym_handler.download_track(track_info['query'], track_info['filename'])
+        file_path = await ym_handler.download_track(search_query, filename)
         
         if file_path and os.path.exists(file_path):
-            audio = FSInputFile(file_path, filename=track_info['filename'])
+            audio = FSInputFile(file_path, filename=filename)
             await bot.send_audio(
                 chat_id=chat_id,
                 audio=audio,
-                title=track_info['title'],
-                performer=track_info['artist']
+                title=title,
+                performer=performer
             )
             await bot.delete_message(chat_id=chat_id, message_id=status_msg_id)
             os.remove(file_path)
-            logging.info(f"Track sent successfully: {track_info['query']}")
+            logging.info(f"Track sent successfully: {display_name}")
         else:
             await bot.edit_message_text(chat_id=chat_id, message_id=status_msg_id, text="❌ Ошибка при скачивании (не найдено на YouTube/SoundCloud).")
-            logging.error(f"Download failed for query: {track_info['query']}")
+            logging.error(f"Download failed for query: {search_query}")
     except Exception as e:
         logging.error(f"Error in background task: {e}")
         try:
@@ -76,7 +91,7 @@ async def process_track_download(chat_id: int, track_url: str, status_msg_id: in
 async def send_welcome(message: types.Message):
     await database.get_user(message.from_user.id, message.from_user.username)
     await message.reply(
-        "Привет! Пришли мне ссылку на трек из Яндекс Музыки.\n\n"
+        "Привет! Пришли мне ссылку на Яндекс Музыку или просто название песни/текст.\n\n"
         "💎 Условия:\n"
         "- Первое скачивание бесплатно!\n"
         "- Далее — 3 звезды за трек."
@@ -112,8 +127,11 @@ async def admin_command(message: types.Message):
     except Exception as e:
         await message.reply(f"❌ Ошибка: {e}")
 
-@dp.message(F.text.contains("music.yandex.ru/"))
-async def catch_yandex_link(message: types.Message):
+@dp.message(F.text)
+async def handle_text_request(message: types.Message):
+    if message.text.startswith('/'):
+        return
+
     user = await database.get_user(message.from_user.id, message.from_user.username)
     
     # Check limits
@@ -123,8 +141,8 @@ async def catch_yandex_link(message: types.Message):
             chat_id=message.chat.id,
             title="Скачивание трека",
             description="Оплата 1 скачивания (3 звезды)",
-            payload=f"download_{message.text}", # Pass URL in payload
-            provider_token="", # Empty for Stars
+            payload=f"download_{message.text}", 
+            provider_token="", # Stars
             currency="XTR",
             prices=[LabeledPrice(label="Скачивание", amount=3)]
         )
@@ -134,8 +152,9 @@ async def catch_yandex_link(message: types.Message):
     if not user['is_whitelisted']:
         await database.decrement_free_download(message.from_user.id)
 
+    is_link = "music.yandex.ru/" in message.text
     status_msg = await message.answer("⏳ Добавлено в очередь...")
-    await download_queue.put((message.chat.id, message.text, status_msg.message_id, message.from_user.id))
+    await download_queue.put((message.chat.id, message.text, status_msg.message_id, message.from_user.id, is_link))
 
 @dp.pre_checkout_query()
 async def on_pre_checkout(query: PreCheckoutQuery):
@@ -145,9 +164,10 @@ async def on_pre_checkout(query: PreCheckoutQuery):
 async def on_successful_payment(message: Message):
     payload = message.successful_payment.invoice_payload
     if payload.startswith("download_"):
-        track_url = payload.replace("download_", "")
+        query_or_url = payload.replace("download_", "")
+        is_link = "music.yandex.ru/" in query_or_url
         status_msg = await message.answer("✅ Оплата прошла! Добавляю в очередь...")
-        await download_queue.put((message.chat.id, track_url, status_msg.message_id, message.from_user.id))
+        await download_queue.put((message.chat.id, query_or_url, status_msg.message_id, message.from_user.id, is_link))
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
