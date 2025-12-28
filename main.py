@@ -60,7 +60,7 @@ async def process_track_download(chat_id: int, query_or_url: str, status_msg_id:
             filename = f"{safe_name}.mp3"
             display_name = query_or_url
             title = query_or_url
-            performer = "YouTube/SoundCloud"
+            performer = None
 
         await bot.edit_message_text(chat_id=chat_id, message_id=status_msg_id, text=f"📥 Скачиваю: {display_name}...")
         
